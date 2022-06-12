@@ -12,6 +12,7 @@ TODO 实现updateNovel函数(已完成，但没试验过)。
     添加交互界面, 最好为图形界面。
     添加过滤重复章节，重复章节指的是当前章和上一张相同，则当前章为重复章节。
     添加功能，当下载小说时查找不到小说的名字，可以根据相似度提示其他小说名字。
+    将下载章节改为一个章节一个txt，当有失败章节的时候能将其记录，下载完毕后对失败章节进行5次重下，如果还不成功就作罢，最后由主线程将所有章节合并。
 '''
 
 headers = {
@@ -100,7 +101,7 @@ def getCatalog(targetUrl: str, name: str, mode='download') -> Tuple[List[str], L
 # 没有使用代理池，所以设置了间隔时间
 def getChapter(name: str, threadNum=10, mode='wb'):
     # 使用二进制模式防止编码错误
-    f = open('{}.txt'.format(name), mode)
+    f = open('./books/{}.txt'.format(name), mode)
     threadList = [threading.Thread(target=getChapterThread, args=(f, time.perf_counter())) for _ in range(threadNum)]
     for each in threadList:
         each.start()
@@ -262,7 +263,7 @@ def WebsiteCatalog():
 
 def main(name: str):
     # 判断是否有下载过
-    for each in os.listdir():
+    for each in os.listdir('./books'):
         if '{}.txt'.format(name) == each:
             updateNovel(name)
             return
@@ -297,5 +298,5 @@ def main(name: str):
     getChapter(name)
 
 if __name__ == '__main__':
-    main('星门')
+    main('舌尖上的霍格沃茨')
     # getWebsiteCatalog()
