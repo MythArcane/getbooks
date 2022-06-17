@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block title %}
+小说下载器
+{% endblock %}
+
+{% block head %}
+    {{ super() }}
+    <style type="text/css">
+        .detail{
+            color: red;
+        }
+        .bookDiv{
+        position: relative;
+        left: 20%;
+        margin-left: -50px;
+        float: left;
+        width: {{maxCatalogLength+200}}px;
+    }
+    .bookLi{
+        height: 30px;
+        width:{{maxCatalogLength}}px;
+    }
+    .downloadDiv{
+        position: relative;
+        float: left;
+    }
+    .downloadButton{
+        height:25px;
+        margin-top: 2.5px;
+        margin-bottom: 2.5px;
+    }
+    body{
+        background-color: rgba(230, 230, 250, 1);
+    }
+    </style>
+{% endblock %}
+{% block body %}
+    <!-- <script>
+        var width = window.innerWidth;
+        var height = window.innerHeight;
+        if (width > height)
+        {
+
+        }
+    </script> -->
+    <div>
+        <h1 style="left:20%; position: relative;">已下载小说</h1>
+    </div>
+
+        <div class="bookDiv">
+            {% for each in message %}
+            <li class="bookLi">
+                <a href="{{ prelink }}{{each}}">
+                    {{each}}
+                </a>
+            </li>
+            
+            {% endfor %}
+        </div>
+        <div class="downloadDiv">
+            {% for each in message %}
+            <button class="downloadButton">
+                <a href="/">
+                    更新
+                </a>
+            </button>
+            <br>
+            {% endfor %}
+        </div>
+
+    
+    
+{% endblock %}  

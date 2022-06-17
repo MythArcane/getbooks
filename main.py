@@ -4,15 +4,14 @@ import requests, time, os, threading, json
 from bs4 import BeautifulSoup
 
 '''
-当天时间为2022/5/17, 网址目前可用。
-TODO 实现updateNovel函数(已完成，但没试验过)。
-    搭建小型网页服务端, 将下载好的小说放在上面。
+当天时间为2022/6/17, 网址目前可用。
+TODO
+    更新小型网页服务端，添加可以下载没有的小说的功能
     添加ip代理池, 将获取网站目录的速度加快。
     实现updateWebsiteCatalog函数。
     添加交互界面, 最好为图形界面。
     添加过滤重复章节，重复章节指的是当前章和上一张相同，则当前章为重复章节。
     添加功能，当下载小说时查找不到小说的名字，可以根据相似度提示其他小说名字。
-    将下载章节改为一个章节一个txt，当有失败章节的时候能将其记录，下载完毕后对失败章节进行5次重下，如果还不成功就作罢，最后由主线程将所有章节合并。
 '''
 
 headers = {
@@ -32,8 +31,12 @@ url = 'http://www.biququ.com/'
 # targetUrl = 'http://www.biququ.com/html/50050/'
 startUrl = 'http://www.biququ.com/html/50050/625621.html'
 
+# 章节分隔符
+splitChapter = '\n\n'
+
 # 线程锁
 threadLock = threading.Lock()
+
 # 参数，第一个为'http://www.biququ.com/html/50050/'中的50050，可变
 #       第二个为leaveCount，遇到404时加1
 #       第三个为allCount，总计爬了多少本小说
@@ -43,7 +46,11 @@ parameters = [1, 0, 0, time.perf_counter()]
 chapters = []
 links = []
 failList = []
-chapterParamters = [0, 0]
+
+# 第一个参数为下载数量
+# 第二个参数预计废弃
+# 第三个参数为线程结束任务数
+chapterParamters = [0, 0, 0]
 
 # 根据当前页面返回下一章的url
 # 如果爬不到，可以采用模拟点击下一章按钮规避
@@ -99,65 +106,87 @@ def getCatalog(targetUrl: str, name: str, mode='download') -> Tuple[List[str], L
 
 # 获取小说章节内容
 # 没有使用代理池，所以设置了间隔时间
-def getChapter(name: str, threadNum=10, mode='wb'):
+def getChapter(name: str, threadNum=10):
     # 使用二进制模式防止编码错误
-    f = open('./books/{}.txt'.format(name), mode)
-    threadList = [threading.Thread(target=getChapterThread, args=(f, time.perf_counter())) for _ in range(threadNum)]
+    # f = open('./books/{}.txt'.format(name), mode)
+    os.mkdir('./tmp/{}'.format(name))
+    threadList = [threading.Thread(target=getChapterThread, args=(time.perf_counter(), name)) for _ in range(threadNum)]
     for each in threadList:
         each.start()
-    while chapterParamters[1] < len(links):
+    while chapterParamters[2] != threadNum:
         pass
     time.sleep(1)
-    f.close()
+    # f.close()
     print('\n成功下载{}章，失败{}章，章节名为：'.format(len(chapters) - len(failList), len(failList)))
     for each in failList:
         print(each)
 
 def getChapterThread(*args):
-    f: BufferedWriter = args[0]
-    t: float = args[1]
+    f: BufferedWriter = None
+    t: float = args[0]
+    filename: str = args[1]
+
     while True:
         with threadLock:
             if chapterParamters[0] >= len(chapters):
+                chapterParamters[2] += 1
                 return
             index = chapterParamters[0]
             chapterParamters[0] += 1
+        f = open('./tmp/{}/{}.txt'.format(filename, index), 'wb')
         try:
             response = requests.get(url + links[index], headers)
         except:
-            while chapterParamters[1] != index:
-                pass
             print('爬取{}章节失败，已留空！'.format(chapters[index]))
-            with threadLock:
-                f.write((chapters[index] + '\n\n').encode())
+            f.write((chapters[index] + splitChapter).encode())
             failList.append(chapters[index])
-            chapterParamters[1] += 1
+            f.close()
             continue
         if response.status_code != 200:
-            while chapterParamters[1] != index:
-                pass
             print('爬取{}章节失败，已留空！'.format(chapters[index]))
-            with threadLock:
-                f.write((chapters[index] + '\n\n').encode())
+            f.write((chapters[index] + splitChapter).encode())
             failList.append(chapters[index])
-            chapterParamters[1] += 1
+            f.close()
             continue
         
         soup = BeautifulSoup(response.text, "html.parser")
         data = soup.find_all('p')
-        while chapterParamters[1] != index:
-            pass
-        # with threadLock:
+
         f.write((chapters[index] + '\n').encode())
         for each in data:
             if each.a is None and each.parent.attrs.get('id', None) == 'content':
                 # print(each.text)
                 f.write((each.text + '\n').encode())
-        f.write('\n'.encode())
+        f.write(splitChapter.encode())
         print('爬取 {} 成功，还剩{}章，总计耗时{:.2f}秒。'.format(chapters[index], len(links)-index-1, time.perf_counter()-t))
-        chapterParamters[1] += 1
+        f.close()
 
         time.sleep(0.1)
+
+def mergePart(name):
+    print('Start merge!')
+    path = './tmp/{}/'.format(name)
+    if not os.path.exists(path):
+        print('未能成功下载小说')
+        return
+    f = open('./books/{}.txt'.format(name), 'ab')
+    for i in range(len(chapters)):
+        tmpPath = path + str(i) + '.txt'
+        with open(tmpPath, 'rb') as f1:
+            data = f1.read()
+        f.write(data)
+        f.flush()
+    f.close()
+    print('Finish merge!')
+
+def removePart(name):
+    path = './tmp/{}/'.format(name)
+    if not os.path.exists(path):
+        return
+    for i in range(len(chapters)):
+        tmpPath = path + str(i) + '.txt'
+        os.remove(tmpPath)
+    os.rmdir(path)
 
 def getWebsiteCatalogThread():
     url = 'http://www.biququ.com/'
@@ -251,9 +280,9 @@ def updateNovel(name: str):
         chapters = chapters[chapterNumber:]
         links = links[chapterNumber:]
         if len(links) < 10:
-            getChapter(name, 1, 'ab')
+            getChapter(name, 1)
         else:
-            getChapter(name, 10, 'ab')
+            getChapter(name, 10)
     else:
         print('检测到未下载过小说，请先下载小说！')
 
@@ -266,6 +295,8 @@ def main(name: str):
     for each in os.listdir('./books'):
         if '{}.txt'.format(name) == each:
             updateNovel(name)
+            mergePart(name)
+            removePart(name)
             return
             # print('当前目录下已有该本小说，是否重新下载(y/n)?')
             # if input().lower() == 'y':
@@ -296,7 +327,9 @@ def main(name: str):
     chapters.extend(tmp1)
     links.extend(tmp2)
     getChapter(name)
+    mergePart(name)
+    removePart(name)
 
 if __name__ == '__main__':
-    main('舌尖上的霍格沃茨')
+    main('仙子很凶')
     # getWebsiteCatalog()
