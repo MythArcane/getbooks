@@ -16,59 +16,79 @@
         margin-left: -50px;
         float: left;
         width: {{maxCatalogLength+200}}px;
-    }
-    .bookLi{
-        height: 30px;
-        width:{{maxCatalogLength}}px;
-    }
-    .downloadDiv{
-        position: relative;
-        float: left;
-    }
-    .downloadButton{
-        height:25px;
-        margin-top: 2.5px;
-        margin-bottom: 2.5px;
-    }
-    body{
-        background-color: rgba(230, 230, 250, 1);
-    }
+        }
+        .bookLi{
+            height: 30px;
+            width:{{maxCatalogLength}}px;
+        }
+        .downloadDiv{
+            position: relative;
+            float: left;
+        }
+        .downloadButton{
+            height:25px;
+            margin-top: 2.5px;
+            margin-bottom: 2.5px;
+            float: right;
+        }
+        body{
+            background-color: rgba(230, 230, 250, 1);
+        }
     </style>
+    <script>
+        function press(id){
+            var con = confirm('是否进行小说更新？\n小说最近更新日期为：2022.6.18');
+            if (con == true){
+                location.replace("/")
+            }
+        }
+    </script>
 {% endblock %}
 {% block body %}
-    <!-- <script>
-        var width = window.innerWidth;
-        var height = window.innerHeight;
-        if (width > height)
-        {
-
-        }
-    </script> -->
     <div>
-        <h1 style="left:20%; position: relative;">已下载小说</h1>
+        <h1 style="left:15%; position: relative;">已下载小说</h1>
     </div>
 
         <div class="bookDiv">
+            <li class="bookLi" style="list-style-type: none;"><a href="/controlStatus" style="float: right;">切换到小说状态管理</a></li>
             {% for each in message %}
             <li class="bookLi">
                 <a href="{{ prelink }}{{each}}">
                     {{each}}
                 </a>
+                <button class="downloadButton" onclick="press({{loop.index0}})" id="{{ loop.index0 }}">
+                        更新
+                </button>
             </li>
             
             {% endfor %}
         </div>
-        <div class="downloadDiv">
-            {% for each in message %}
-            <button class="downloadButton">
-                <a href="/">
-                    更新
-                </a>
-            </button>
-            <br>
-            {% endfor %}
-        </div>
 
-    
-    
+        <script>
+            var bookLength = {{ bookLength }};
+            var nowTIme = Date.now();
+            var bookStatus = {{ bookStatus }};
+
+            for (let index = 0; index < bookLength; index++) {
+                if (((nowTIme - {{ bookTime }}[index]) / 60 / 60 / 24) < 1)
+                {
+                    var tmp = document.getElementById(toString(index));
+                    tmp.style.backgroundColor = '#3ae900';
+                }
+                else
+                {
+                    var tmp = document.getElementById(index.toString());
+                    if (bookStatus[index] == 0)
+                    {
+                        tmp.style.backgroundColor = '#ff3434';
+                    }
+                    else
+                    {
+                        tmp.style.backgroundColor = '#3ae900';
+                    }
+                    
+                }
+                
+            }
+        </script>
 {% endblock %}  

@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+
+{% block title %}
+小说下载器
+{% endblock %}
+
+{% block head %}
+    {{ super() }}
+    <style type="text/css">
+        .detail{
+            color: red;
+        }
+        .bookDiv{
+        position: relative;
+        left: 20%;
+        margin-left: -50px;
+        float: left;
+        width: {{maxCatalogLength+200}}px;
+        }
+        .bookLi{
+            height: 30px;
+            width:{{maxCatalogLength+60}}px;
+        }
+        .downloadDiv{
+            position: relative;
+            float: left;
+        }
+        .bookStatus{
+            float: right;
+        }
+        body{
+            background-color: rgba(230, 230, 250, 1);
+        }
+    </style>
+    <script>
+        function press(id){
+            var e = window.event;
+            e.preventDefault();
+
+            var button = document.getElementById('modify');
+            var bookLength = {{ bookLength }}
+            
+            if (button.textContent == '开启修改')
+            {
+                button.textContent = '完成修改';
+                var tmp = document.getElementById('modifyForm');
+                tmp.action = '/modify';
+                tmp.method = 'post';
+                for (let index = 0; index < bookLength; index++) {
+                    var radios = document.getElementsByName('bookStatus' + index.toString());
+                    radios[0].removeAttribute('disabled');
+                    radios[1].removeAttribute('disabled');
+                }
+            }
+            else
+            {
+                button.textContent = '开启修改';
+                var tmp = document.getElementById('modifyForm');
+                tmp.submit();
+                // 上面表单提交后原则上下面的代码都不会运行
+                for (let index = 0; index < bookLength; index++) {
+                    var radios = document.getElementsByName('bookStatus' + index.toString());
+                    radios[0].setAttribute('disabled', 'disabled');
+                    radios[1].setAttribute('disabled', 'disabled');
+                }
+            }
+        }
+    </script>
+{% endblock %}
+{% block body %}
+    <div>
+        <h1 style="left:15%; position: relative;">已下载小说</h1>
+    </div>
+
+        <div class="bookDiv">
+            <form id="modifyForm">
+                <li class="bookLi" style="list-style-type: none;"><a href="/" style="float: right;">返回已下载小说列表</a></li>
+                <li class="bookLi" style="list-style-type: none;"><button style="float: right" onclick="press()" id="modify">开启修改</button></li>
+                {% for each in message %}
+                <li class="bookLi">
+                    <a href="{{ prelink }}{{each}}">
+                        {{each}}
+                    </a>
+                    <label class="bookStatus"><input type="radio" name="bookStatus{{ loop.index0 }}" value="1" disabled="disabled"/>完本</label>
+                    <label class="bookStatus"><input type="radio" name="bookStatus{{ loop.index0 }}" value="0" disabled="disabled"/>未完本</label>
+                </li>
+                {% endfor %}
+            </form>
+        </div>
+
+        <script>
+            var bookLength = {{ bookLength }};
+            var nowTIme = Date.now();
+            var bookStatus = {{ bookStatus }};
+
+            for (let index = 0; index < bookLength; index++) {
+                var radios = document.getElementsByName('bookStatus' + index.toString());
+                if (bookStatus[index] == 1)
+                {
+                    radios[0].setAttribute('checked', 'true');
+                }
+                else
+                {
+                    radios[1].setAttribute('checked', 'true');
+                }
+            }
+        </script>
+{% endblock %}  

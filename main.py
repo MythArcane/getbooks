@@ -6,12 +6,12 @@ from bs4 import BeautifulSoup
 '''
 当天时间为2022/6/17, 网址目前可用。
 TODO
-    更新小型网页服务端，添加可以下载没有的小说的功能
+    更新小型网页服务端，添加可以下载没有的小说的功能（完成部分）
     添加ip代理池, 将获取网站目录的速度加快。
     实现updateWebsiteCatalog函数。
-    添加交互界面, 最好为图形界面。
-    添加过滤重复章节，重复章节指的是当前章和上一张相同，则当前章为重复章节。
-    添加功能，当下载小说时查找不到小说的名字，可以根据相似度提示其他小说名字。
+    not important 添加交互界面, 最好为图形界面。(已有web界面代替)
+    not important 添加过滤重复章节，重复章节指的是当前章和上一张相同，则当前章为重复章节。
+    not important 添加功能，当下载小说时查找不到小说的名字，可以根据相似度提示其他小说名字。
 '''
 
 headers = {
@@ -28,8 +28,6 @@ headers = {
 }
 
 url = 'http://www.biququ.com/'
-# targetUrl = 'http://www.biququ.com/html/50050/'
-startUrl = 'http://www.biququ.com/html/50050/625621.html'
 
 # 章节分隔符
 splitChapter = '\n\n'
@@ -46,9 +44,10 @@ parameters = [1, 0, 0, time.perf_counter()]
 chapters = []
 links = []
 failList = []
+failListIndex = []
 
-# 第一个参数为下载数量
-# 第二个参数预计废弃
+# 第一个参数为下载章节数量，不论失败与否。
+# 第二个参数只有当处于下载失败章节的时候，此参数代表失败章节数量，否则无意义
 # 第三个参数为线程结束任务数
 chapterParamters = [0, 0, 0]
 
@@ -106,40 +105,66 @@ def getCatalog(targetUrl: str, name: str, mode='download') -> Tuple[List[str], L
 
 # 获取小说章节内容
 # 没有使用代理池，所以设置了间隔时间
-def getChapter(name: str, threadNum=10):
-    # 使用二进制模式防止编码错误
-    # f = open('./books/{}.txt'.format(name), mode)
+def getChapter(name: str, threadNum=10, maxtry=5):
+    allChapterNum: int = len(chapters)
     os.mkdir('./tmp/{}'.format(name))
-    threadList = [threading.Thread(target=getChapterThread, args=(time.perf_counter(), name)) for _ in range(threadNum)]
+    if maxtry < 5:
+        threadList = [threading.Thread(target=getChapterThread, args=(time.perf_counter(), name, True)) for _ in range(threadNum)]
+    else:
+        threadList = [threading.Thread(target=getChapterThread, args=(time.perf_counter(), name, False)) for _ in range(threadNum)]
     for each in threadList:
         each.start()
     while chapterParamters[2] != threadNum:
         pass
     time.sleep(1)
-    # f.close()
-    print('\n成功下载{}章，失败{}章，章节名为：'.format(len(chapters) - len(failList), len(failList)))
-    for each in failList:
-        print(each)
+    
+    if len(failList) > 0 and maxtry > 0:
+        processFail()
+        getChapter(name, threadNum if len(links) > 10 else len(links), maxtry-1)
+    if maxtry != 5:
+        return
+    
+    if len(failList) == 0:
+        print('\n成功下载{}章，失败0章'.format(allChapterNum))
+    else:
+        print('\n成功下载{}章，失败{}章，章节名为：'.format(allChapterNum - len(failList), len(failList)))
+        for each in failList:
+            print(each)
 
 def getChapterThread(*args):
     f: BufferedWriter = None
     t: float = args[0]
     filename: str = args[1]
+    hasFailListIndex = args[2]
 
     while True:
-        with threadLock:
-            if chapterParamters[0] >= len(chapters):
-                chapterParamters[2] += 1
-                return
-            index = chapterParamters[0]
-            chapterParamters[0] += 1
-        f = open('./tmp/{}/{}.txt'.format(filename, index), 'wb')
+        # 处于有爬取失败章节的状态
+        if hasFailListIndex:
+            with threadLock:
+                # 通过processFail预设了在 一次重新下载失败章节 的时候的数量，不会将在这一次重新下载失败章节的再次失败的章节再次下载。
+                # 同时通过每次取index时使用pop将原本的失败章节给移出列表
+                if chapterParamters[0] >= chapterParamters[1]:
+                    chapterParamters[2] += 1
+                    return
+                index = failListIndex.pop(0)
+                failList.pop()
+                chapterParamters[0] += 1
+            f = open('./tmp/{}/{}.txt'.format(filename, index), 'wb')
+        else:
+            with threadLock:
+                if chapterParamters[0] >= len(chapters):
+                    chapterParamters[2] += 1
+                    return
+                index = chapterParamters[0]
+                chapterParamters[0] += 1
+            f = open('./tmp/{}/{}.txt'.format(filename, index), 'wb')
         try:
             response = requests.get(url + links[index], headers)
         except:
             print('爬取{}章节失败，已留空！'.format(chapters[index]))
             f.write((chapters[index] + splitChapter).encode())
             failList.append(chapters[index])
+            failListIndex.append(index)
             f.close()
             continue
         if response.status_code != 200:
@@ -187,6 +212,12 @@ def removePart(name):
         tmpPath = path + str(i) + '.txt'
         os.remove(tmpPath)
     os.rmdir(path)
+
+# TODO index对齐问题
+def processFail():
+    global chapterParamters
+
+    chapterParamters = [len(failList), 0, 0]
 
 def getWebsiteCatalogThread():
     url = 'http://www.biququ.com/'
@@ -298,11 +329,6 @@ def main(name: str):
             mergePart(name)
             removePart(name)
             return
-            # print('当前目录下已有该本小说，是否重新下载(y/n)?')
-            # if input().lower() == 'y':
-            #     break
-            # else:
-            #     return
     # 查找目录
     targetUrl = None
     t = time.perf_counter()
