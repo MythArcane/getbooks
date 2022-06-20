@@ -1,10 +1,20 @@
 from typing import Optional
 from flask import Flask, render_template, send_from_directory, request, redirect, url_for
-import os, json
+import os, json, time, threading
+from getBook import GetBooks
+
+'''
+官网例程误我，写了大半才想起来可以用class来更好的集成，也不用那么多的global了
+有空改
+'''
 
 DOWNLOAD_PATH = r'C:\workspace\getbooks\books'
 
+isUpdating = False
+updateStatus = []
+
 app = Flask(__name__)
+getbook = GetBooks()
 
 # 工具函数
 def getCatalogMaxLength() -> int:
@@ -41,6 +51,33 @@ def getFinishedBook() -> Optional[dict]:
 def writeFinishedBook(fileDict: dict) -> None:
     with open('bookStatus.json', 'w', encoding='utf-8') as f:
         json.dump(fileDict, f)
+
+def checkUpdateStatus():
+    global isUpdating, getbook
+
+    if isUpdating:
+        if getbook.finish:
+            isUpdating = False
+            initUpdateStatus()
+        else:
+            pass
+    else:
+        initUpdateStatus()
+
+def initUpdateStatus():
+    global updateStatus
+
+    updateStatus.clear()
+
+    message = []
+    for each in os.listdir('./books'):
+        message.append(each)
+    
+    updateStatus.extend([0] * len(message))
+
+def init():
+    initUpdateStatus()
+
 # 工具函数
 
 @app.route('/about/')
@@ -49,6 +86,9 @@ def about():
 
 @app.route('/')
 def index():
+    global getbook
+
+    checkUpdateStatus()
     message = []
     prelink = '/books/'
     maxLength = 0
@@ -62,7 +102,9 @@ def index():
         'maxCatalogLength': getCatalogMaxLength(), 
         'bookLength': len(message),
         'bookTime': getBookTime(message),
-        'bookStatus': getBookStatus(message)
+        'bookStatus': getBookStatus(message),
+        'updateStatus': updateStatus,
+        'progressBar': getbook.processBar
     }
     return render_template('index.html', **indexDict)
 
@@ -74,7 +116,19 @@ def download(filename):
 
 @app.route('/update/<filename>')
 def update(filename):
-    return 'Not done!'
+    global updateStatus, isUpdating, getbook
+
+    message = []
+    for each in os.listdir('./books'):
+        message.append(each)
+    index = message.index(filename + '.txt')
+    updateStatus[index] = 1
+    isUpdating = True
+
+    t1 = threading.Thread(target=getbook.main, args=(filename,))
+    t1.start()
+
+    return redirect(url_for('.index'))
 
 @app.route('/controlStatus')
 def controlStatus():
@@ -110,6 +164,22 @@ def modifyBookStatus():
 
     return redirect(url_for('.controlStatus'))
 
+@app.route('/test1')
+def test1():
+    global isUpdating
+    return {isUpdating:1}
+
+count = 0
+@app.route('/test2')
+def test2():
+    global count
+    if count == 0:
+        time.sleep(10)
+        count += 1
+    return {count: count}
+
 if __name__ == "__main__":
+    init()
+
     app.debug = True
     app.run(port=9877, host='192.168.2.107')

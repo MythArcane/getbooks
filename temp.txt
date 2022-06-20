@@ -1,1 +1,4 @@
-chapters和links不变，增加一个failListIndex列表
+checkUpdateStatus   在每次刷新页面的时候运行判断是否在更新
+                    通过检查getbook.finish判断是否在更新
+                    没有更新什么也不改动
+                    有更新，改动进度条

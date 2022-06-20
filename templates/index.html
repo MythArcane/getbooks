@@ -19,7 +19,8 @@
         }
         .bookLi{
             height: 30px;
-            width:{{maxCatalogLength}}px;
+            line-height: 30px;
+            width:{{maxCatalogLength+18}}px;
         }
         .downloadDiv{
             position: relative;
@@ -31,17 +32,34 @@
             margin-bottom: 2.5px;
             float: right;
         }
+        .updateProcessDiv{
+            float: right;
+            margin-top: 2px;
+            display: none;
+        }
         body{
             background-color: rgba(230, 230, 250, 1);
         }
     </style>
     <script>
-        function press(id){
-            var con = confirm('是否进行小说更新？\n小说最近更新日期为：2022.6.18');
+        function press(id, bookName){
+            var bookTime = {{ bookTime }};
+            var lastUpdateTIme = changeTimeFormat(Number(bookTime[id])*1000);
+            var con = confirm('是否进行小说更新？\n小说最近更新日期为:'+lastUpdateTIme);
             if (con == true){
-                location.replace("/")
+                location.replace("/update/"+bookName.replace('.txt', ''));
             }
         }
+
+        function changeTimeFormat(time) {
+        var date = new Date(time);
+        var month = date.getMonth() + 1 < 10 ? "0" + (date.getMonth() + 1) : date.getMonth() + 1;
+        var currentDate = date.getDate() < 10 ? "0" + date.getDate() : date.getDate();
+        // var hh = date.getHours() < 10 ? "0" + date.getHours() : date.getHours();
+        // var mm = date.getMinutes() < 10 ? "0" + date.getMinutes() : date.getMinutes();
+        return date.getFullYear() + "-" + month + "-" + currentDate;
+        //返回格式：yyyy-MM-dd hh:mm
+    }
     </script>
 {% endblock %}
 {% block body %}
@@ -54,11 +72,12 @@
             {% for each in message %}
             <li class="bookLi">
                 <a href="{{ prelink }}{{each}}">
-                    {{each}}
+                    {{ each }}
                 </a>
-                <button class="downloadButton" onclick="press({{loop.index0}})" id="{{ loop.index0 }}">
+                <button class="downloadButton" onclick="press({{ loop.index0 }}, '{{ each }}')" id="{{ loop.index0 }}">
                         更新
                 </button>
+                <!-- <div class="updateProcessDiv" id="processBar{{ loop.index0 }}">100%</div> -->
             </li>
             
             {% endfor %}
@@ -66,29 +85,32 @@
 
         <script>
             var bookLength = {{ bookLength }};
-            var nowTIme = Date.now();
+            var nowTime = Date.now();
             var bookStatus = {{ bookStatus }};
+            var updateStatus = {{ updateStatus }};
+            var updateBook = updateStatus.indexOf(1);
+            var processBar = {{ progressBar }};
 
             for (let index = 0; index < bookLength; index++) {
-                if (((nowTIme - {{ bookTime }}[index]) / 60 / 60 / 24) < 1)
+                var tmp = document.getElementById(index.toString());
+                if (updateBook != -1)
                 {
-                    var tmp = document.getElementById(toString(index));
+                    if (index == updateBook)
+                    {
+                        tmp.textContent = processBar + '%';
+                        // document.getElementById('processBar'+index.toString()).style.display = 'block';
+                    }
+                    tmp.setAttribute('disabled', 'disabled');
+                    continue;
+                }
+                if ((((nowTime - Number({{ bookTime }}[index] * 1000)) / 1000 /  60 / 60 / 24) < 1) || (bookStatus[index] == 1))
+                {
                     tmp.style.backgroundColor = '#3ae900';
                 }
                 else
                 {
-                    var tmp = document.getElementById(index.toString());
-                    if (bookStatus[index] == 0)
-                    {
-                        tmp.style.backgroundColor = '#ff3434';
-                    }
-                    else
-                    {
-                        tmp.style.backgroundColor = '#3ae900';
-                    }
-                    
+                    tmp.style.backgroundColor = '#ff3434';
                 }
-                
             }
         </script>
 {% endblock %}  

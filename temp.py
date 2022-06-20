@@ -3,6 +3,7 @@ import os
 import time
 import datetime as dt
 import json
+import threading
 
 def getFinishedBook():
     if os.path.exists('bookStatus.json'):
@@ -34,4 +35,41 @@ data = {
 # data = getFinishedBook()
 # print(data)
 
-writeFinishedBook(data)
+# writeFinishedBook(data)
+
+def getBookTime(books: list) -> list:
+    path = './books/'
+    bookTime = []
+    for each in books:
+        tmpPath = path + each
+        bookTime.append(os.path.getmtime(tmpPath))
+    return bookTime
+
+# message = []
+# for each in os.listdir('./books'):
+#     message.append(each)
+
+# updateStatus = []
+# updateStatus.extend([0] * len(message))
+# print(updateStatus)
+
+class Func():
+    def __init__(self) -> None:
+        self.count = 0
+
+    def func(self, x):
+        print(x)
+        while True:
+            time.sleep(1)
+            self.count += 1
+            # print('thread: ' + str(self.count))
+x = 1
+f = Func()
+t1 = threading.Thread(target=f.func, args=(x,))
+t1.start()
+
+while True:
+    print('main: ' + str(f.count))
+    if input() == 'q':
+        break
+
