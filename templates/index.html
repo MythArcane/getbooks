@@ -79,8 +79,13 @@
                 </button>
                 <!-- <div class="updateProcessDiv" id="processBar{{ loop.index0 }}">100%</div> -->
             </li>
-            
             {% endfor %}
+            <form action="/downloadFullBook", method="post">
+                <li class="bookLi">
+                    <input type="text" name="bookname">
+                    <button class="downloadButton">下载</button>
+                </li>
+            </form>
         </div>
 
         <script>

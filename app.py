@@ -39,7 +39,6 @@ def getBookStatus(books: list) -> list:
         ls.append(int(data[each]))
     return ls
 
-
 def getFinishedBook() -> Optional[dict]:
     if os.path.exists('bookStatus.json'):
         with open('bookStatus.json', encoding='utf-8') as f:
@@ -51,6 +50,22 @@ def getFinishedBook() -> Optional[dict]:
 def writeFinishedBook(fileDict: dict) -> None:
     with open('bookStatus.json', 'w', encoding='utf-8') as f:
         json.dump(fileDict, f)
+
+def addOneBookStatus(bookName: str, status: int):
+    data = getFinishedBook()
+    if not bookName.endswith('.txt'):
+        bookName += '.txt'
+    data[bookName] = str(status)
+    writeFinishedBook(data)
+
+def removeOneBookStatus(bookName: str):
+    data = getFinishedBook()
+    if not bookName.endswith('.txt'):
+        bookName += '.txt'
+    if data.get(bookName, None) is None:
+        return
+    del data[bookName]
+    writeFinishedBook(data)
 
 def checkUpdateStatus():
     global isUpdating, getbook
@@ -64,6 +79,19 @@ def checkUpdateStatus():
     else:
         initUpdateStatus()
 
+def pureUpdate(filename):
+    global updateStatus, isUpdating, getbook
+
+    message = []
+    for each in os.listdir('./books'):
+        message.append(each)
+    index = message.index(filename + '.txt')
+    updateStatus[index] = 1
+    isUpdating = True
+
+    t1 = threading.Thread(target=getbook.main, args=(filename,))
+    t1.start()
+
 def initUpdateStatus():
     global updateStatus
 
@@ -75,9 +103,22 @@ def initUpdateStatus():
     
     updateStatus.extend([0] * len(message))
 
+def initIndex():
+    message = []
+    for each in os.listdir('./books'):
+        message.append(each)
+    data = getFinishedBook()
+    if len(message) < len(data.keys()):
+        for each in list(data.keys())[:]:
+            if each not in message:
+                del data[each]
+    elif len(message) > len(data.keys()):
+        for each in message:
+            if each not in data.keys():
+                data[each] = '0'
+
 def init():
     initUpdateStatus()
-
 # 工具函数
 
 @app.route('/about/')
@@ -88,6 +129,7 @@ def about():
 def index():
     global getbook
 
+    initIndex()
     checkUpdateStatus()
     message = []
     prelink = '/books/'
@@ -114,19 +156,24 @@ def index():
 def download(filename):
     return send_from_directory(DOWNLOAD_PATH, filename, as_attachment=True)
 
+@app.route('/downloadFullBook', methods=['POST'])
+def downloadFullBook():
+    global getbook
+
+    form = request.form
+    bookName = form.get('bookname')
+    if getbook.searchBook(bookName):
+        with open('./books/{}.txt'.format(bookName), 'w') as f:
+            pass
+        addOneBookStatus(bookName, 0)
+        pureUpdate(bookName)
+        return redirect(url_for('.index'))
+    else:
+        return '没有找到该小说，请注意拼写！'
+
 @app.route('/update/<filename>')
 def update(filename):
-    global updateStatus, isUpdating, getbook
-
-    message = []
-    for each in os.listdir('./books'):
-        message.append(each)
-    index = message.index(filename + '.txt')
-    updateStatus[index] = 1
-    isUpdating = True
-
-    t1 = threading.Thread(target=getbook.main, args=(filename,))
-    t1.start()
+    pureUpdate(filename)
 
     return redirect(url_for('.index'))
 

@@ -357,5 +357,5 @@ def main(name: str):
     removePart(name)
 
 if __name__ == '__main__':
-    main('仙子很凶')
+    main('太监能有什么坏心思')
     # getWebsiteCatalog()

@@ -53,23 +53,10 @@ def getBookTime(books: list) -> list:
 # updateStatus.extend([0] * len(message))
 # print(updateStatus)
 
-class Func():
-    def __init__(self) -> None:
-        self.count = 0
+from getBook import GetBooks
 
-    def func(self, x):
-        print(x)
-        while True:
-            time.sleep(1)
-            self.count += 1
-            # print('thread: ' + str(self.count))
-x = 1
-f = Func()
-t1 = threading.Thread(target=f.func, args=(x,))
-t1.start()
+a = GetBooks()
 
-while True:
-    print('main: ' + str(f.count))
-    if input() == 'q':
-        break
-
+a.main('我的法术没有攻击力')
+# each = '我的法术没有攻击力'
+# print(os.path.getsize('./books/{}.txt'.format(each)))

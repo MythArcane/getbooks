@@ -4,6 +4,11 @@ from typing import List, Tuple
 import requests, time, os, threading, json
 from bs4 import BeautifulSoup
 
+
+'''
+update在没有新章节的时候会重复下载最后一章
+'''
+
 class GetBooks():
     def __init__(self) -> None:
         self.headers = {
@@ -183,7 +188,7 @@ class GetBooks():
             f.write(self.splitChapter.encode())
             print('爬取 {} 成功，还剩{}章，总计耗时{:.2f}秒。'.format(self.chapters[index], len(self.links)-index-1, time.perf_counter()-t))
             with self.threadLock:
-                self.processBar = max(self.processBar, ceil(((len(self.links)-index-1)/self.allChapterNum)*100))
+                self.processBar = max(self.processBar, ceil(((index+1)/self.allChapterNum)*100))
             f.close()
 
             time.sleep(0.1)
@@ -313,6 +318,23 @@ class GetBooks():
         else:
             print('检测到未下载过小说，请先下载小说！')
 
+    def searchBook(self, name: str) -> bool:
+        targetUrl = None
+        t = time.perf_counter()
+
+        with open('catalogThread.txt') as f:
+            while True:
+                data = f.readline().strip()
+                if not data:
+                    break
+                if data.split('、')[-1] == name:
+                    targetUrl = self.url + 'html/{}/'.format(data.split('、')[0])
+                    break
+        if targetUrl is None:
+            return False
+        else:
+            return True
+
     # 更新网站目录
     def WebsiteCatalog(self):
         pass
@@ -331,11 +353,13 @@ class GetBooks():
         try:
             for each in os.listdir('./books'):
                 if '{}.txt'.format(name) == each:
-                    self.updateNovel(name)
-                    self.mergePart(name)
-                    self.removePart(name)
-                    self.mainEnd()
-                    return
+                    if os.path.getsize('./books/{}.txt'.format(name)) != 0:
+                        self.updateNovel(name)
+                        self.mergePart(name)
+                        self.removePart(name)
+                        self.mainEnd()
+                        return
+                    break
             # 查找目录
             targetUrl = None
             t = time.perf_counter()
@@ -347,13 +371,16 @@ class GetBooks():
                     if data.split('、')[-1] == name:
                         targetUrl = self.url + 'html/{}/'.format(data.split('、')[0])
                         break
+            print(1)
             print('查找完毕，共耗时{:.2f}秒'.format(time.perf_counter() - t))
+            print('targetUrl: ', targetUrl)
             if targetUrl is None:
                 print('没有找到这本书！请检查拼写是否有错误！')
                 self.mainEnd()
                 return
             
             # 开始下载
+            print('开始下载')
             tmp1, tmp2 = self.getCatalog(targetUrl, name)
             if tmp1 is None:
                 print('没能成功获取章节目录！')
