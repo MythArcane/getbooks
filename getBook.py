@@ -9,6 +9,8 @@ from bs4 import BeautifulSoup
 update在没有新章节的时候会重复下载最后一章
 '''
 
+MAXIUMTRY = 5
+
 class GetBooks():
     def __init__(self) -> None:
         self.headers = {
@@ -108,10 +110,11 @@ class GetBooks():
 
     # 获取小说章节内容
     # 没有使用代理池，所以设置了间隔时间
-    def getChapter(self, name: str, threadNum=10, maxtry=5):
+    def getChapter(self, name: str, threadNum=10, maxtry=MAXIUMTRY):
         self.allChapterNum: int = len(self.chapters)
-        os.mkdir('./tmp/{}'.format(name))
-        if maxtry < 5:
+        if maxtry == MAXIUMTRY:
+            os.mkdir('./tmp/{}'.format(name))
+        if maxtry < MAXIUMTRY:
             threadList = [threading.Thread(target=self.getChapterThread, args=(time.perf_counter(), name, True)) for _ in range(threadNum)]
         else:
             threadList = [threading.Thread(target=self.getChapterThread, args=(time.perf_counter(), name, False)) for _ in range(threadNum)]
@@ -121,10 +124,12 @@ class GetBooks():
             pass
         time.sleep(1)
         
+        print('FailList')
+        print(self.failList)
         if len(self.failList) > 0 and maxtry > 0:
             self.processFail()
             self.getChapter(name, threadNum if len(self.links) > 10 else len(self.links), maxtry-1)
-        if maxtry != 5:
+        if maxtry != MAXIUMTRY:
             return
         
         if len(self.failList) == 0:
@@ -148,15 +153,21 @@ class GetBooks():
                     # 同时通过每次取index时使用pop将原本的失败章节给移出列表
                     if self.chapterParamters[0] >= self.chapterParamters[1]:
                         self.chapterParamters[2] += 1
+                        print('redownload over')
+                        return
+                    elif (self.failList) == 0:
+                        print('failList is empty')
+                        self.chapterParamters[2] += 1
                         return
                     index = self.failListIndex.pop(0)
-                    self.failList.pop()
+                    self.failList.pop(0)
                     self.chapterParamters[0] += 1
                 f = open('./tmp/{}/{}.txt'.format(filename, index), 'wb')
             else:
                 with self.threadLock:
                     if self.chapterParamters[0] >= len(self.chapters):
                         self.chapterParamters[2] += 1
+                        print('download over')
                         return
                     index = self.chapterParamters[0]
                     self.chapterParamters[0] += 1
@@ -343,6 +354,11 @@ class GetBooks():
         self.getCatalogFail = False
         self.finish = False
         self.processBar = 0
+        self.failList.clear()
+        self.failListIndex.clear()
+        self.chapters.clear()
+        self.links.clear()
+        self.chapterParamters = [0, 0, 0]
 
     def mainEnd(self):
         self.finish = True
@@ -390,6 +406,8 @@ class GetBooks():
                 self.getChapter(name)
                 self.mergePart(name)
                 self.removePart(name)
+        except Exception as e:
+            print(e)
         finally:
             self.mainEnd()
             return
