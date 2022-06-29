@@ -185,6 +185,7 @@ class GetBooks():
                 print('爬取{}章节失败，已留空！'.format(self.chapters[index]))
                 f.write((self.chapters[index] + self.splitChapter).encode())
                 self.failList.append(self.chapters[index])
+                self.failListIndex.append(index)
                 f.close()
                 continue
             
